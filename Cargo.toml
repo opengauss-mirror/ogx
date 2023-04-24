@@ -1,0 +1,33 @@
+[workspace]
+resolver = "2"
+members = [
+    "cargo-ogx",
+    "ogx",
+    "ogx-macros",
+    "ogx-pg-config",
+    "ogx-pg-sys",
+    "ogx-tests",
+    "ogx-utils",
+    "ogx-examples/aggregate",
+    "ogx-examples/arrays",
+    "ogx-examples/bad_ideas",
+    "ogx-examples/bgworker",
+    "ogx-examples/bytea",
+    "ogx-examples/composite_type",
+    "ogx-examples/custom_types",
+    "ogx-examples/custom_sql",
+    "ogx-examples/errors",
+    "ogx-examples/nostd",
+    "ogx-examples/operators",
+    "ogx-examples/schemas",
+    "ogx-examples/shmem",
+    "ogx-examples/spi",
+    "ogx-examples/srf",
+    "ogx-examples/strings",
+    "ogx-examples/triggers",
+    "ogx-examples/versioned_so",
+    "ogx-examples/spi_srf",
+]
+
+[profile.dev.build-override]
+opt-level = 3

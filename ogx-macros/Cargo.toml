@@ -1,0 +1,28 @@
+[package]
+name = "ogx-macros"
+version = "0.1.0"
+authors = ["Heguofeng<hgf199@126.com>"]
+license = "MIT"
+description = "Proc Macros for 'ogx'"
+homepage = "https://gitee.com/Nelson-He/ogx"
+repository = "https://gitee.com/Nelson-He/ogx"
+documentation = "https://docs.rs/ogx-macros"
+readme = "README.md"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[package.metadata.docs.rs]
+# Enable `#[cfg(docsrs)]` (https://docs.rs/about/builds#cross-compiling)
+rustc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+ogx-utils = { path = "../ogx-utils", version = "=0.1.0" }
+proc-macro2 = "1.0.47"
+quote = "1.0.21"
+syn = { version = "1.0.103", features = [ "extra-traits", "full", "fold", "parsing" ] }
+unescape = "0.1.0"
+
+[dev-dependencies]
+serde = { version = "1.0.146", features = ["derive"] }

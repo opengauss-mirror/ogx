@@ -1,0 +1,49 @@
+[package]
+name = "cargo-ogx"
+version = "0.1.0"
+authors = ["Heguofeng<hgf199@126.com>"]
+license = "MIT"
+description = "Cargo subcommand for 'ogx' to make openGauss extension development easy"
+homepage = "https://gitee.com/Nelson-He/ogx"
+repository = "https://gitee.com/Nelson-He/ogx"
+documentation = "https://docs.rs/cargo-ogx"
+categories = ["development-tools::cargo-plugins", "command-line-utilities", "database"]
+keywords = ["database", "opengauss", "extension"]
+readme = "README.md"
+exclude = [ "*.png" ]
+edition = "2021"
+
+[dependencies]
+atty = "0.2.14"
+cargo_metadata = "0.14.2"
+cargo_toml = "0.11.8"
+clap = { version = "3.2.22", features = [ "env", "suggestions", "cargo", "derive" ] }
+clap-cargo = { version = "0.8.0", features = [ "cargo_metadata" ] }
+semver = "1.0.14"
+owo-colors = { version = "3.5.0", features = [ "supports-colors" ] }
+env_proxy = "0.4.1"
+num_cpus = "1.13.1"
+ogx-pg-config = { path = "../ogx-pg-config", version = "=0.1.0" }
+ogx-utils = { path = "../ogx-utils", version = "=0.1.0", features = ["syntax-highlighting"] }
+prettyplease = "0.1.21"
+proc-macro2 = { version = "1.0.47", features = [ "span-locations" ] }
+quote = "1.0.21"
+rayon = "1.5.3"
+regex = "1.6.0"
+ureq = { version = "2.5.0", features = ["native-tls"] }
+url = "2.3.1"
+serde = { version = "1.0.146", features = [ "derive" ] }
+serde_derive = "1.0.146"
+serde-xml-rs = "0.5.1"
+syn = { version = "1.0.103", features = [ "extra-traits", "full", "fold", "parsing" ] }
+unescape = "0.1.0"
+fork = "0.1.20"
+libloading = "0.7.3"
+object = "0.28.4"
+once_cell = "1.15.0"
+eyre = "0.6.8"
+color-eyre = "0.6.2"
+tracing = "0.1.37"
+tracing-error = "0.2.0"
+tracing-subscriber = { version = "0.3.16", features = [ "env-filter" ] }
+sysinfo = "0.26.8"

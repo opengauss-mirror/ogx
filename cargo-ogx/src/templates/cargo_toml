@@ -1,0 +1,28 @@
+[package]
+name = "{name}"
+version = "0.0.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+default = ["og3"]
+og3 = ["ogx/og3", "ogx-tests/og3"]
+og_test = []
+
+[dependencies]
+ogx = "=0.1.0"
+
+[dev-dependencies]
+ogx-tests = "=0.1.0"
+
+[profile.dev]
+panic = "unwind"
+lto = "thin"
+
+[profile.release]
+panic = "unwind"
+opt-level = 3
+lto = "fat"
+codegen-units = 1

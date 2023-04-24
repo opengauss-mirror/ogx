@@ -1,0 +1,5 @@
+comment = 'bgworker:  Created by ogx'
+default_version = '@CARGO_VERSION@'
+module_pathname = '$libdir/bgworker'
+relocatable = false
+superuser = false

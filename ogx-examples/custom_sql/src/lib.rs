@@ -1,0 +1,122 @@
+/*
+Portions Copyright 2019-2021 ZomboDB, LLC.
+Portions Copyright 2021-2022 Technology Concepts & Design, Inc. <support@tcdi.com>
+
+All rights reserved.
+
+Use of this source code is governed by the MIT license that can be found in the LICENSE file.
+*/
+
+use ogx::prelude::*;
+use serde::{Deserialize, Serialize};
+
+ogx::pg_module_magic!();
+
+#[og_schema]
+mod home {
+    use super::*;
+
+    #[og_schema]
+    pub mod dogs {
+        use super::*;
+
+        #[derive(OgEnum, Serialize, Deserialize)]
+        pub enum Dog {
+            Brandy,
+            Nami,
+        }
+    }
+
+    #[derive(OgType, Serialize, Deserialize)]
+    pub struct Ball {
+        last_chomp: Dog,
+    }
+}
+pub use home::dogs::Dog;
+
+// `extension_sql` allows you to define your own custom SQL.
+//
+// Since PostgreSQL is is order dependent, you may need to specify a positioning.
+//
+// Valid options are:
+//  * `bootstrap` positions the block before any other generated SQL. It should be unique.
+//     Errors if `before`/`after` are also present.
+//  * `before = [$ident]` & `after = [$ident]` positions the block before/after `$ident`
+//    where `$ident` is a string identifier or a path to a SQL entity (such as a type which derives
+//    `OgType`)
+//  * `creates = [Enum($ident), Type($ident), Function($ident)]` tells the dependency graph that this block creates a given entity.
+//  * `name` is an optional string identifier for the item, in case you need to refer to it in
+//    other positioning.
+extension_sql!(
+    "\n\
+        CREATE TABLE extension_sql (message TEXT);\n\
+        INSERT INTO extension_sql VALUES ('bootstrap');\n\
+    ",
+    name = "bootstrap_raw",
+    bootstrap,
+);
+extension_sql!(
+    "\n
+        INSERT INTO extension_sql VALUES ('single_raw');\n\
+    ",
+    name = "single_raw",
+    requires = [home::dogs]
+);
+extension_sql!(
+    "\n\
+    INSERT INTO extension_sql VALUES ('multiple_raw');\n\
+",
+    name = "multiple_raw",
+    requires = [Dog, home::Ball, "single_raw", "single"],
+);
+
+// `extension_sql_file` does the same as `extension_sql` but automatically sets the `name` to the
+// filename (not the full path).
+extension_sql_file!("../sql/single.sql", requires = ["single_raw"]);
+extension_sql_file!(
+    "../sql/multiple.sql",
+    requires = [Dog, home::Ball, "single_raw", "single", "multiple_raw"],
+);
+extension_sql_file!("../sql/finalizer.sql", finalize);
+
+#[cfg(any(test, feature = "og_test"))]
+#[og_schema]
+mod tests {
+    use ogx::prelude::*;
+
+    #[og_test]
+    fn test_ordering() {
+        let buf = Spi::connect(|client| {
+            let buf = client
+                .select("SELECT * FROM extension_sql", None, None)
+                .flat_map(|tup| tup.by_ordinal(1).ok().and_then(|ord| ord.value::<String>()))
+                .collect::<Vec<String>>();
+
+            Ok(Some(buf))
+        });
+
+        assert_eq!(
+            buf.unwrap(),
+            vec![
+                String::from("bootstrap"),
+                String::from("single_raw"),
+                String::from("single"),
+                String::from("multiple_raw"),
+                String::from("multiple"),
+                String::from("finalizer")
+            ]
+        )
+    }
+}
+
+#[cfg(test)]
+pub mod og_test {
+    pub fn setup(_options: Vec<&str>) {
+        // perform one-off initialization when the og_test framework starts
+    }
+
+    pub fn opengauss_conf_options() -> Vec<&'static str> {
+        // return any postgresql.conf settings that are required for your tests
+        vec![]
+    }
+}

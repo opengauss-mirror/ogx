@@ -1,0 +1,30 @@
+[package]
+name = "schemas"
+version = "0.0.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+default = ["og3"]
+og3 = ["ogx/og3", "ogx-tests/og3" ]
+og_test = []
+
+[dependencies]
+ogx = { path = "../../ogx", default-features = false }
+serde = "1.0.146"
+
+[dev-dependencies]
+ogx-tests = { path = "../../ogx-tests" }
+
+# uncomment these if compiling outside of 'ogx'
+# [profile.dev]
+# panic = "unwind"
+# lto = "thin"
+
+# [profile.release]
+# panic = "unwind"
+# opt-level = 3
+# lto = "fat"
+# codegen-units = 1

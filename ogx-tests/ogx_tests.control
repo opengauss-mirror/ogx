@@ -1,0 +1,5 @@
+comment = 'tests:  Created by ogx'
+default_version = '1.0'
+module_pathname = '$libdir/ogx_tests'
+relocatable = false
+superuser = false

@@ -1,0 +1,299 @@
+/*
+Portions Copyright 2019-2021 ZomboDB, LLC.
+Portions Copyright 2021-2022 Technology Concepts & Design, Inc. <support@tcdi.com>
+
+All rights reserved.
+
+Use of this source code is governed by the MIT license that can be found in the LICENSE file.
+*/
+//! `ogx` is a framework for creating Postgres extensions in 100% Rust
+//!
+//! ## Example
+//!
+//! ```rust
+//! use ogx::*;
+//!
+//! // Convert the input string to lowercase and return
+//! #[og_extern]
+//! fn my_to_lowercase(input: &'static str) -> String {
+//!     input.to_lowercase()
+//! }
+//!
+//! ```
+#![allow(clippy::missing_safety_doc)]
+#![allow(clippy::cast_ptr_alignment)]
+extern crate ogx_macros;
+
+#[macro_use]
+extern crate bitflags;
+
+// expose our various derive macros
+pub use ogx_macros::*;
+
+/// The OGX prelude includes necessary imports to make extensions work.
+pub mod prelude;
+
+pub mod aggregate;
+pub mod callbacks;
+pub mod datum;
+pub mod enum_helper;
+pub mod fcinfo;
+pub mod guc;
+pub mod hooks;
+pub mod htup;
+pub mod inoutfuncs;
+pub mod itemptr;
+pub mod iter;
+pub mod list;
+#[macro_use]
+pub mod log;
+pub mod array;
+pub mod atomics;
+pub mod heap_tuple;
+pub mod lwlock;
+pub mod memcxt;
+pub mod misc;
+pub mod namespace;
+pub mod nodes;
+pub mod ogbox;
+pub mod rel;
+pub mod shmem;
+pub mod spi;
+pub mod stringinfo;
+pub mod trigger_support;
+pub mod tupdesc;
+pub mod varlena;
+pub mod wrappers;
+pub mod xid;
+
+#[doc(hidden)]
+pub use once_cell;
+
+mod layout;
+
+pub use aggregate::*;
+pub use atomics::*;
+pub use callbacks::*;
+pub use datum::*;
+pub use enum_helper::*;
+pub use fcinfo::*;
+pub use guc::*;
+pub use hooks::*;
+pub use htup::*;
+pub use inoutfuncs::*;
+pub use itemptr::*;
+pub use list::*;
+pub use log::*;
+pub use lwlock::*;
+pub use memcxt::*;
+pub use namespace::*;
+pub use nodes::*;
+pub use ogbox::*;
+pub use rel::*;
+pub use shmem::*;
+pub use spi::*;
+pub use stringinfo::*;
+pub use trigger_support::*;
+pub use tupdesc::*;
+pub use varlena::*;
+pub use wrappers::*;
+pub use xid::*;
+
+pub use ogx_pg_sys as pg_sys; // the module only, not its contents
+pub use ogx_pg_sys::submodules::*;
+pub use ogx_pg_sys::PgBuiltInOids; // reexport this so it looks like it comes from here
+
+pub use {cstr_core, ogx_utils as utils};
+
+use once_cell::sync::Lazy;
+use std::collections::HashSet;
+
+use ogx_utils::sql_entity_graph::RustSourceOnlySqlMapping;
+
+macro_rules! map_source_only {
+    ($map:ident, $rust:ty, $sql:expr) => {{
+        let ty = stringify!($rust).to_string().replace(" ", "");
+        assert_eq!(
+            $map.insert(RustSourceOnlySqlMapping::new(ty.clone(), $sql.to_string(),)),
+            true,
+            "Cannot map {} twice",
+            ty
+        );
+
+        let ty = stringify!(Option<$rust>).to_string().replace(" ", "");
+        assert_eq!(
+            $map.insert(RustSourceOnlySqlMapping::new(ty.clone(), $sql.to_string(),)),
+            true,
+            "Cannot map {} twice",
+            ty
+        );
+
+        let ty = stringify!(Vec<$rust>).to_string().replace(" ", "");
+        assert_eq!(
+            $map.insert(RustSourceOnlySqlMapping::new(ty.clone(), format!("{}[]", $sql),)),
+            true,
+            "Cannot map {} twice",
+            ty
+        );
+
+        let ty = stringify!(Array<$rust>).to_string().replace(" ", "");
+        assert_eq!(
+            $map.insert(RustSourceOnlySqlMapping::new(ty.clone(), format!("{}[]", $sql),)),
+            true,
+            "Cannot map {} twice",
+            ty
+        );
+    }};
+}
+
+pub static DEFAULT_RUST_SOURCE_TO_SQL: Lazy<HashSet<RustSourceOnlySqlMapping>> = Lazy::new(|| {
+    let mut m = HashSet::new();
+
+    map_source_only!(m, pg_sys::Oid, "Oid");
+
+    m
+});
+
+/// A macro for marking a library compatible with [`ogx`][crate].
+///
+/// <div class="example-wrap" style="display:inline-block">
+/// <pre class="ignore" style="white-space:normal;font:inherit;">
+///
+/// **Note**: Every [`ogx`][crate] extension **must** have this macro called at top level (usually `src/lib.rs`) to be valid.
+///
+/// </pre></div>
+///
+/// This calls both [`pg_magic_func!()`](pg_magic_func) and [`pg_sql_graph_magic!()`](pg_sql_graph_magic).
+#[macro_export]
+macro_rules! pg_module_magic {
+    () => {
+        $crate::pg_magic_func!();
+        $crate::pg_sql_graph_magic!();
+    };
+}
+
+/// Create the `Pg_magic_func` required by OGX in extensions.
+///
+/// <div class="example-wrap" style="display:inline-block">
+/// <pre class="ignore" style="white-space:normal;font:inherit;">
+///
+/// **Note**: Generally [`pg_module_magic`] is preferred, and results in this macro being called.
+/// This macro should only be directly called in advanced use cases.
+///
+/// </pre></div>
+///
+/// Creates a “magic block” that describes the capabilities of the extension to
+/// Postgres at runtime. From the [Dynamic Loading] section of the upstream documentation:
+///
+/// > To ensure that a dynamically loaded object file is not loaded into an incompatible
+/// > server, PostgreSQL checks that the file contains a “magic block” with the appropriate
+/// > contents. This allows the server to detect obvious incompatibilities, such as code
+/// > compiled for a different major version of PostgreSQL. To include a magic block,
+/// > write this in one (and only one) of the module source files, after having included
+/// > the header `fmgr.h`:
+/// >
+/// > ```c
+/// > PG_MODULE_MAGIC;
+/// > ```
+///
+/// ## Acknowledgements
+///
+/// This macro was initially inspired from the `pg_module` macro by [Daniel Fagnan]
+/// and expanded by [Benjamin Fry].
+///
+/// [Benjamin Fry]: https://github.com/bluejekyll/pg-extend-rs
+/// [Daniel Fagnan]: https://github.com/thehydroimpulse/postgres-extension.rs
+/// [Dynamic Loading]: https://www.postgresql.org/docs/current/xfunc-c.html#XFUNC-C-DYNLOAD
+#[macro_export]
+macro_rules! pg_magic_func {
+    () => {
+        #[no_mangle]
+        #[allow(non_snake_case)]
+        #[allow(unused)]
+        #[link_name = "Pg_magic_func"]
+        #[doc(hidden)]
+        pub extern "C" fn Pg_magic_func() -> &'static ogx::pg_sys::Pg_magic_struct {
+            use core::mem::size_of;
+            use ogx;
+
+            #[cfg(any(feature = "og3"))]
+            const MY_MAGIC: ogx::pg_sys::Pg_magic_struct = ogx::pg_sys::Pg_magic_struct {
+                len: size_of::<ogx::pg_sys::Pg_magic_struct>() as i32,
+                version: ogx::pg_sys::PG_VERSION_NUM as i32 / 100,
+                funcmaxargs: ogx::pg_sys::FUNC_MAX_ARGS as i32,
+                indexmaxkeys: ogx::pg_sys::INDEX_MAX_KEYS as i32,
+                namedatalen: ogx::pg_sys::NAMEDATALEN as i32,
+                float4byval: ogx::pg_sys::USE_FLOAT4_BYVAL as i32,
+                float8byval: ogx::pg_sys::USE_FLOAT8_BYVAL as i32,
+            };
+
+            // go ahead and register our panic handler since Postgres
+            // calls this function first
+            ogx::initialize();
+
+            // return the magic
+            &MY_MAGIC
+        }
+    };
+}
+
+/// Create neccessary extension-local internal marker for use with SQL generation.
+///
+/// <div class="example-wrap" style="display:inline-block">
+/// <pre class="ignore" style="white-space:normal;font:inherit;">
+///
+/// **Note**: Generally [`pg_module_magic`] is preferred, and results in this macro being called.
+/// This macro should only be directly called in advanced use cases.
+///
+/// </pre></div>
+#[macro_export]
+macro_rules! pg_sql_graph_magic {
+    () => {
+        #[no_mangle]
+        #[doc(hidden)]
+        #[rustfmt::skip] // explict extern "Rust" is more clear here
+        pub extern "Rust" fn __ogx_sql_mappings() -> ::ogx::utils::sql_entity_graph::RustToSqlMapping {
+            ::ogx::utils::sql_entity_graph::RustToSqlMapping {
+                rust_source_to_sql: ::ogx::DEFAULT_RUST_SOURCE_TO_SQL.clone(),
+            }
+        }
+
+        // A marker which must exist in the root of the extension.
+        #[no_mangle]
+        #[doc(hidden)]
+        #[rustfmt::skip] // explict extern "Rust" is more clear here
+        pub extern "Rust" fn __ogx_marker(
+            _: (),
+        ) -> ::ogx::utils::__reexports::eyre::Result<::ogx::utils::sql_entity_graph::ControlFile> {
+            use ::core::convert::TryFrom;
+            use ::ogx::utils::__reexports::eyre::WrapErr;
+            let package_version = env!("CARGO_PKG_VERSION");
+            let context = include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/",
+                env!("CARGO_CRATE_NAME"),
+                ".control"
+            ))
+            .replace("@CARGO_VERSION@", package_version);
+
+            let control_file =
+                ::ogx::utils::sql_entity_graph::ControlFile::try_from(context.as_str())
+                    .wrap_err_with(|| "Could not parse control file, is it valid?")?;
+            Ok(control_file)
+        }
+    };
+}
+
+/// Initialize the extension with Postgres
+///
+/// Sets up panic handling with [`register_og_guard_panic_hook()`] to ensure that a crash within
+/// the extension does not adversely affect the entire server process.
+///
+/// ## Note
+///
+/// This is called automatically by the [`pg_module_magic!()`] macro and need not be called
+/// directly.
+#[allow(unused)]
+pub fn initialize() {
+    register_og_guard_panic_hook();
+}

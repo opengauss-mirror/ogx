@@ -1,0 +1,32 @@
+use ogx::prelude::*;
+
+ogx::pg_module_magic!();
+
+#[og_extern]
+fn hello_{name}() -> &'static str {{
+    "Hello, {name}"
+}}
+
+#[cfg(any(test, feature = "og_test"))]
+#[og_schema]
+mod tests {{
+    use ogx::prelude::*;
+
+    #[og_test]
+    fn test_hello_{name}() {{
+        assert_eq!("Hello, {name}", crate::hello_{name}());
+    }}
+
+}}
+
+#[cfg(test)]
+pub mod og_test {{
+    pub fn setup(_options: Vec<&str>) {{
+        // perform one-off initialization when the og_test framework starts
+    }}
+
+    pub fn opengauss_conf_options() -> Vec<&'static str> {{
+        // return any postgresql.conf settings that are required for your tests
+        vec![]
+    }}
+}}
